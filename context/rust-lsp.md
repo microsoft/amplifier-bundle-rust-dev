@@ -69,8 +69,8 @@ For simple single-operation lookups, use tool-lsp directly. **Delegate to `code-
 
 | Method | Description |
 |--------|-------------|
-| `rust-analyzer/expandMacro` | Expand a macro at cursor position (confirmed working) |
-| `rust-analyzer/relatedTests` | Find tests related to a function/struct (confirmed working) |
+| `rust-analyzer/expandMacro` | Expand a macro at cursor position (standalone build only — not available in rustup component) |
+| `rust-analyzer/relatedTests` | Find tests related to a function/struct (standalone build only — not available in rustup component) |
 | `experimental/externalDocs` | Get docs.rs or std library doc links |
 | `experimental/runnables` | Find runnable targets (tests, bins, examples) |
 | `rust-analyzer/fetchDependencyList` | List all crate dependencies |
@@ -90,16 +90,17 @@ Ensure your project has a `Cargo.toml` at the root for accurate analysis. For Ca
 
 rust-analyzer can be installed two ways:
 
-**Standalone (recommended for full features):**
+**Standalone (REQUIRED for expandMacro, relatedTests, and other custom extensions):**
 Download from https://github.com/rust-lang/rust-analyzer/releases
 - Includes all custom extensions (expandMacro, relatedTests, runnables, etc.)
 
-**Via rustup (simpler but may lack extensions):**
+**Via rustup (simpler — but custom extensions like expandMacro will NOT work):**
 ```bash
 rustup component add rust-analyzer
 ```
 - The rustup version may lag behind standalone releases
-- Custom extensions (expandMacro, relatedTests) may not be available
+- Custom extensions (expandMacro, relatedTests, externalDocs) are NOT available in the rustup build
+- All standard LSP operations (hover, goToDefinition, findReferences, etc.) work fine with either build
 
 Verify installation:
 ```bash

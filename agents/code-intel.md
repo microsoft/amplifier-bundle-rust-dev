@@ -62,6 +62,8 @@ If the investigation will use customRequest extensions (expandMacro, relatedTest
 - If it returns "Method not supported": the rustup component build is installed, which lacks extensions. Inform the user and fall back to source-reading strategies.
 - If it works: full extension support available.
 
+**If Step 3 fails: DO NOT attempt any customRequest operations for the remainder of this session.** All extension strategies (expandMacro, relatedTests, externalDocs, runnables, etc.) will also fail. Skip directly to standard LSP operations and use the documented fallback strategies instead. This saves tokens and avoids repeated failed tool calls.
+
 ### When to skip validation
 - If you've already successfully used LSP operations earlier in this session (server is known to be healthy)
 - If the parent session has confirmed LSP is working and passed that context to you
@@ -200,6 +202,18 @@ rust-analyzer does not implement `prepareTypeHierarchy`/`supertypes`/`subtypes` 
 `codeAction` may return empty if the workspace hasn't finished indexing:
 1. Try `diagnostics` first to trigger analysis
 2. Then retry `codeAction` after diagnostics return results
+
+## Large Workspace Strategy
+
+For workspaces with more than ~6 crates, avoid exhaustive analysis that may exceed context budget:
+
+1. **Start with the root crate** — Use `documentSymbol` on `src/lib.rs` or `src/main.rs` of the top-level crate to get an overview
+2. **Map the dependency graph first** — Use `hover` on `use` and `extern crate` statements to identify which crates are imported where
+3. **Prioritize by the user's question** — Don't try to map every crate; focus on the crates relevant to what the user asked about
+4. **Summarize early** — Produce a partial summary after analyzing 3-4 key crates rather than exhausting context trying to cover all of them
+5. **Offer to go deeper** — After the initial summary, tell the user which crates you analyzed and offer to dive into specific ones they're interested in
+
+The goal is a useful partial analysis over an unusable exhaustive attempt.
 
 ## Output Style
 

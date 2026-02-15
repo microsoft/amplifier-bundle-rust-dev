@@ -96,3 +96,9 @@ See @rust-dev:context/RUST_BEST_PRACTICES.md for the full development philosophy
 3. Use LSP tools to understand code before modifying
 4. Let the type system guide correctness
 5. Prefer `Result` over `unwrap()` in production code
+
+### What `rust_check` Does NOT Do
+
+- **Test execution** — `rust_check` does not run `cargo test`. For test execution, use `cargo test` directly via bash. Test integration is planned for a future release.
+- **Benchmarks** — `rust_check` does not run `cargo bench`.
+- **Documentation generation** — `rust_check` does not run `cargo doc`.
