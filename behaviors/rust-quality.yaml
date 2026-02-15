@@ -1,0 +1,49 @@
+# Rust Quality Behavior
+#
+# Provides Rust code quality capabilities:
+# - Code quality checking (cargo fmt, clippy, cargo check, stub detection)
+# - Automatic checking on file edits (hook)
+# - Expert Rust dev agent
+#
+# Include this behavior to add Rust quality tools to any bundle.
+
+bundle:
+  name: behavior-rust-quality
+  version: 0.1.0
+  description: Rust quality tools - cargo checks, auto-checking hook, and expert agent
+
+# Tools provided by this behavior
+tools:
+  - module: tool-rust-check
+    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check
+    config:
+      default_checks:
+        - format
+        - lint
+        - types
+        - stubs
+
+# Hooks provided by this behavior
+hooks:
+  - module: hooks-rust-check
+    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/hooks-rust-check
+    config:
+      enabled: true
+      file_patterns:
+        - "*.rs"
+      report_level: warning
+      auto_inject: true
+      checks:
+        - lint
+        - types
+        - format
+
+# Agents provided by this behavior
+agents:
+  include:
+    - rust-dev:rust-dev
+
+# Context files loaded with this behavior
+context:
+  include:
+    - rust-dev:context/rust-dev-instructions.md

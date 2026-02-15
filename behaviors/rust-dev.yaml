@@ -1,0 +1,21 @@
+# Rust Development Behavior (Composite)
+#
+# The full Rust development experience:
+# - LSP code intelligence via rust-analyzer
+# - Code quality checking (cargo fmt, clippy, cargo check)
+# - Automatic checking on file edits
+# - Expert agents for navigation and quality
+#
+# Users who want only LSP or only quality can include
+# the sub-behaviors directly:
+#   - rust-dev:behaviors/rust-lsp     (LSP only)
+#   - rust-dev:behaviors/rust-quality (quality only)
+
+bundle:
+  name: behavior-rust-dev
+  version: 0.1.0
+  description: Full Rust development experience - LSP + quality tools + expert agents
+
+includes:
+  - bundle: rust-dev:behaviors/rust-lsp
+  - bundle: rust-dev:behaviors/rust-quality

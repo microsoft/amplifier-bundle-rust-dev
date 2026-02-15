@@ -1,0 +1,93 @@
+[project]
+name = "amplifier-bundle-rust-dev"
+version = "0.1.0"
+description = "Comprehensive Rust development tools for Amplifier - code quality, LSP, and expert agents"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Microsoft", email = "amplifier@microsoft.com" }
+]
+keywords = [
+    "amplifier",
+    "rust",
+    "linting",
+    "clippy",
+    "cargo",
+    "code-quality",
+    "rust-analyzer",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+
+# No Python tool dependencies - cargo/clippy/rustfmt are system tools
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/microsoft/amplifier-bundle-rust-dev"
+Documentation = "https://github.com/microsoft/amplifier-bundle-rust-dev#readme"
+Repository = "https://github.com/microsoft/amplifier-bundle-rust-dev"
+Issues = "https://github.com/microsoft/amplifier-bundle-rust-dev/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/amplifier_bundle_rust_dev"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/modules",
+    "/behaviors",
+    "/agents",
+    "/context",
+    "/docs",
+    "/bundle.yaml",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "modules"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["amplifier_bundle_rust_dev"]
+force-single-line = true
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--import-mode=importlib"

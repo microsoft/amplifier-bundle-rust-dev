@@ -1,0 +1,28 @@
+# Amplifier Rust Development Bundle
+#
+# The "Rust Development Home" - comprehensive Rust tooling for Amplifier.
+#
+# Provides:
+# - LSP code intelligence via rust-analyzer (absorbed from lsp-rust)
+# - Tool module: rust_check() for agents
+# - Hook module: Automatic checking on file write/edit
+# - Agents: code-intel (LSP) + rust-dev (quality expert)
+# - Shared library: Core checking logic (cargo fmt, clippy, cargo check)
+#
+# Usage:
+#   includes:
+#     - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main
+#
+# For selective inclusion:
+#   # LSP only (no quality hooks):
+#   - bundle: rust-dev:behaviors/rust-lsp
+#   # Quality only (no LSP):
+#   - bundle: rust-dev:behaviors/rust-quality
+
+bundle:
+  name: rust-dev
+  version: 0.1.0
+  description: Comprehensive Rust development tools with code quality, LSP, and expert agents
+
+includes:
+  - bundle: rust-dev:behaviors/rust-dev
