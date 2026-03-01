@@ -29,6 +29,7 @@ meta:
     <commentary>Code understanding benefits from LSP + Rust expertise.</commentary>
     </example>
 
+  model_role: [coding, general]
 tools:
   - module: tool-rust-check
     source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check
