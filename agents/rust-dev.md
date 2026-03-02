@@ -115,4 +115,5 @@ Follow the principles in @rust-dev:context/RUST_BEST_PRACTICES.md:
 
 ---
 
+@foundation:context/LANGUAGE_PHILOSOPHY.md
 @foundation:context/shared/common-agent-base.md

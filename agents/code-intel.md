@@ -223,3 +223,5 @@ The goal is a useful partial analysis over an unusable exhaustive attempt.
 - Note when results span multiple crates in a workspace
 - Explain Rust-specific concepts (trait objects, monomorphization, orphan rules) when they affect results
 - Suggest next steps for deeper exploration
+
+@foundation:context/LANGUAGE_PHILOSOPHY.md
