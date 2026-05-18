@@ -225,3 +225,5 @@ The goal is a useful partial analysis over an unusable exhaustive attempt.
 - Suggest next steps for deeper exploration
 
 @foundation:context/LANGUAGE_PHILOSOPHY.md
+@rust-dev:context/rust-lsp.md
+@rust-dev:context/rust-dev-instructions.md

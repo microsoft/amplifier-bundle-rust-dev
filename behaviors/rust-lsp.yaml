@@ -4,7 +4,7 @@
 
 bundle:
   name: behavior-rust-lsp
-  version: 0.1.0
+  version: 0.2.0
 
 # Include lsp-core behavior to get the tool-lsp module with source
 includes:
@@ -50,10 +50,9 @@ tools:
             procMacro:
               enable: true
 
-# Rust-specific context for agents
-context:
-  include:
-    - rust-dev:context/rust-lsp.md
+# NOTE: rust-lsp.md moved to code-intel agent via context sink pattern.
+# Loaded only when code-intel is delegated to, not always-on for all Rust sessions.
+# Aligns with foundation BUNDLE_GUIDE.md § "Behavior context.include Policy".
 
 # Rust code intelligence agent
 agents:
