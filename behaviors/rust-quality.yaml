@@ -9,7 +9,7 @@
 
 bundle:
   name: behavior-rust-quality
-  version: 0.1.0
+  version: 0.2.0
   description: Rust quality tools - cargo checks, auto-checking hook, and expert agent
 
 # Tools provided by this behavior
@@ -43,7 +43,6 @@ agents:
   include:
     - rust-dev:rust-dev
 
-# Context files loaded with this behavior
-context:
-  include:
-    - rust-dev:context/rust-dev-instructions.md
+# NOTE: rust-dev-instructions.md moved to code-intel agent via context sink pattern.
+# Loaded only when code-intel is delegated to, not always-on for all Rust sessions.
+# Aligns with foundation BUNDLE_GUIDE.md § "Behavior context.include Policy".
