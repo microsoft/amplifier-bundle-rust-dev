@@ -330,10 +330,11 @@ class RustCheckHooks:
                 context_lines.append(f"  ... and {len(result.issues) - 10} more issues")
 
             context_text = "\n".join(context_lines)
+            context_injection = f'<system-reminder source="hooks-rust-check">\n{context_text}\n</system-reminder>'
 
             return HookResult(
                 action="inject_context",
-                context_injection=context_text,
+                context_injection=context_injection,
                 context_injection_role="user",
                 ephemeral=True,
                 append_to_last_tool_result=True,
