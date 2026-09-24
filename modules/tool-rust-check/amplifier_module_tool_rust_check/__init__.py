@@ -4,14 +4,26 @@ This module provides the `rust_check` tool that agents can use to
 check Rust code for formatting, linting, type/compile errors, and stubs.
 """
 
+from pathlib import Path
 from typing import Any
 
 from amplifier_core import ToolResult
-from amplifier_bundle_rust_dev import CheckConfig, check_files
+
+from amplifier_bundle_rust_dev import CheckConfig
+from amplifier_bundle_rust_dev import check_files
 
 
 class RustCheckTool:
     """Tool for checking Rust code quality."""
+
+    def __init__(
+        self,
+        config: dict[str, Any] | None = None,
+        working_dir: Path | None = None,
+    ):
+        config = config or {}
+        self.allow_workspace_execution = config.get("allow_workspace_execution", False)
+        self.working_dir = working_dir or Path.cwd()
 
     @property
     def name(self) -> str:
@@ -22,7 +34,8 @@ class RustCheckTool:
         return """Check Rust code for quality issues.
 
 Runs cargo fmt (formatting), clippy (linting), cargo check (type/compile errors),
-and stub detection on Rust files or projects.
+and stub detection on Rust files or projects. Cargo-based checks are skipped
+unless the host configuration explicitly trusts the workspace and toolchain.
 
 Input options:
 - paths: List of file paths or directories to check
@@ -76,6 +89,7 @@ Returns:
 
         # Build config based on requested checks
         config_overrides = {}
+        config_overrides["allow_workspace_execution"] = self.allow_workspace_execution
         if checks:
             config_overrides["enable_cargo_fmt"] = "format" in checks
             config_overrides["enable_clippy"] = "lint" in checks
@@ -86,16 +100,14 @@ Returns:
 
         # Run checks
         if paths:
-            result = check_files(paths, config=config)
+            result = check_files(paths, config=config, workspace_root=self.working_dir)
         else:
-            result = check_files(["."], config=config)
+            result = check_files(["."], config=config, workspace_root=self.working_dir)
 
         return ToolResult(success=result.success, output=result.to_tool_output())
 
 
-async def mount(
-    coordinator: Any, config: dict[str, Any] | None = None
-) -> dict[str, Any]:
+async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Mount the rust_check tool into the coordinator.
 
     Args:
@@ -105,7 +117,9 @@ async def mount(
     Returns:
         Module metadata
     """
-    tool = RustCheckTool()
+    working_dir_str = coordinator.get_capability("session.working_dir")
+    working_dir = Path(working_dir_str) if working_dir_str else None
+    tool = RustCheckTool(config, working_dir=working_dir)
 
     # Register the tool
     await coordinator.mount("tools", tool, name=tool.name)

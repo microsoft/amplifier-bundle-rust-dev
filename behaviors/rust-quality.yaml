@@ -9,7 +9,7 @@
 
 bundle:
   name: behavior-rust-quality
-  version: 0.2.0
+  version: 0.3.0
   description: Rust quality tools - cargo checks, auto-checking hook, and expert agent
 
 # Tools provided by this behavior
@@ -17,6 +17,8 @@ tools:
   - module: tool-rust-check
     source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check
     config:
+      # Host-controlled trust only. Never source this from Cargo.toml.
+      allow_workspace_execution: false
       default_checks:
         - format
         - lint
@@ -33,10 +35,10 @@ hooks:
         - "*.rs"
       report_level: warning
       auto_inject: true
+      # Automatic hooks must not execute workspace code by default.
+      allow_workspace_execution: false
       checks:
-        - lint
-        - types
-        - format
+        - stubs
 
 # Agents provided by this behavior
 agents:

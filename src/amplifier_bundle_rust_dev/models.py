@@ -1,6 +1,7 @@
 """Data models for Rust checking results."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 
 
@@ -53,6 +54,10 @@ class Issue:
 class CheckConfig:
     """Configuration for Rust checks."""
 
+    # Execution trust. This must only come from host-controlled configuration,
+    # never from the target workspace's Cargo.toml metadata.
+    allow_workspace_execution: bool = False
+
     # What to run
     enable_cargo_fmt: bool = True
     enable_clippy: bool = True
@@ -93,6 +98,7 @@ class CheckConfig:
     def from_dict(cls, data: dict) -> "CheckConfig":
         """Create config from dictionary."""
         return cls(
+            allow_workspace_execution=data.get("allow_workspace_execution", False),
             enable_cargo_fmt=data.get("enable_cargo_fmt", True),
             enable_clippy=data.get("enable_clippy", True),
             enable_cargo_check=data.get("enable_cargo_check", True),
@@ -156,13 +162,9 @@ class CheckResult:
 
         parts = []
         if self.error_count:
-            parts.append(
-                f"{self.error_count} error{'s' if self.error_count != 1 else ''}"
-            )
+            parts.append(f"{self.error_count} error{'s' if self.error_count != 1 else ''}")
         if self.warning_count:
-            parts.append(
-                f"{self.warning_count} warning{'s' if self.warning_count != 1 else ''}"
-            )
+            parts.append(f"{self.warning_count} warning{'s' if self.warning_count != 1 else ''}")
         if self.info_count:
             parts.append(f"{self.info_count} info")
 
@@ -180,12 +182,8 @@ class CheckResult:
         for file_path, file_issues in sorted(by_file.items()):
             lines.append(f"\n{file_path}")
             for issue in sorted(file_issues, key=lambda i: (i.line, i.column)):
-                severity_icon = {"error": "E", "warning": "W", "info": "I"}[
-                    issue.severity.value
-                ]
-                lines.append(
-                    f"  {issue.line}:{issue.column} [{severity_icon}] {issue.code}: {issue.message}"
-                )
+                severity_icon = {"error": "E", "warning": "W", "info": "I"}[issue.severity.value]
+                lines.append(f"  {issue.line}:{issue.column} [{severity_icon}] {issue.code}: {issue.message}")
                 if issue.suggestion:
                     lines.append(f"         -> {issue.suggestion}")
 

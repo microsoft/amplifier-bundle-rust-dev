@@ -11,15 +11,23 @@ import subprocess
 from pathlib import Path
 
 from .config import load_config
-from .models import CheckConfig, CheckResult, Issue, Severity
+from .models import CheckConfig
+from .models import CheckResult
+from .models import Issue
+from .models import Severity
 
 
 class RustChecker:
     """Main checker that orchestrates cargo fmt, clippy, cargo check, and stub detection."""
 
-    def __init__(self, config: CheckConfig | None = None):
+    def __init__(
+        self,
+        config: CheckConfig | None = None,
+        workspace_root: str | Path | None = None,
+    ):
         """Initialize checker with optional config."""
         self.config = config or load_config()
+        self.workspace_root = Path(workspace_root or Path.cwd()).resolve()
 
     def check_files(self, paths: list[str | Path]) -> CheckResult:
         """Run all enabled checks on the given paths.
@@ -39,23 +47,112 @@ class RustChecker:
         path_strs = [str(p) for p in paths]
         results = CheckResult(files_checked=self._count_rust_files(path_strs))
 
-        if self.config.enable_cargo_fmt:
-            fmt_result = self._run_cargo_fmt(path_strs)
-            results = results.merge(fmt_result)
+        cargo_enabled = self.config.enable_cargo_fmt or self.config.enable_clippy or self.config.enable_cargo_check
+        cargo_root = None
+        if cargo_enabled:
+            if not self.config.allow_workspace_execution:
+                results = results.merge(self._execution_blocked_result())
+            else:
+                cargo_root, validation_result = self._resolve_cargo_root(path_strs)
+                if validation_result:
+                    results = results.merge(validation_result)
 
-        if self.config.enable_clippy:
-            clippy_result = self._run_clippy(path_strs)
-            results = results.merge(clippy_result)
+        if cargo_root is not None:
+            if self.config.enable_cargo_fmt:
+                fmt_result = self._run_cargo_fmt(cargo_root)
+                results = results.merge(fmt_result)
 
-        if self.config.enable_cargo_check:
-            check_result = self._run_cargo_check(path_strs)
-            results = results.merge(check_result)
+            if self.config.enable_clippy:
+                clippy_result = self._run_clippy(cargo_root)
+                results = results.merge(clippy_result)
+
+            if self.config.enable_cargo_check:
+                check_result = self._run_cargo_check(cargo_root)
+                results = results.merge(check_result)
 
         if self.config.enable_stub_check:
             stub_result = self._run_stub_check(path_strs)
             results = results.merge(stub_result)
 
         return results
+
+    def _execution_blocked_result(self) -> CheckResult:
+        """Report that execution-capable checks were skipped."""
+        return CheckResult(
+            issues=[
+                Issue(
+                    file=str(self.workspace_root),
+                    line=0,
+                    column=0,
+                    code="WORKSPACE-UNTRUSTED",
+                    message=(
+                        "Skipped Cargo-based checks because they can execute build.rs, "
+                        "procedural macros, dependencies, and external tools"
+                    ),
+                    severity=Severity.WARNING,
+                    source="trust-policy",
+                    suggestion=(
+                        "Enable allow_workspace_execution only in host-controlled "
+                        "configuration after trusting the workspace and toolchain"
+                    ),
+                )
+            ],
+            checks_run=["cargo-skipped-untrusted"],
+        )
+
+    def _resolve_cargo_root(self, paths: list[str]) -> tuple[Path | None, CheckResult | None]:
+        """Validate paths and return the canonical Cargo root for execution."""
+        cargo_toml = self._find_cargo_toml(self.workspace_root)
+        if cargo_toml is None:
+            return None, self._workspace_error(
+                "CARGO-WORKSPACE-NOT-FOUND",
+                f"No Cargo.toml found at or above {self.workspace_root}",
+            )
+
+        cargo_root = cargo_toml.parent.resolve()
+        for path_str in paths:
+            candidate = Path(path_str)
+            if not candidate.is_absolute():
+                candidate = self.workspace_root / candidate
+            try:
+                resolved = candidate.resolve(strict=True)
+                resolved.relative_to(cargo_root)
+            except (OSError, ValueError):
+                return None, self._workspace_error(
+                    "PATH-OUTSIDE-WORKSPACE",
+                    f"Refusing Cargo execution for path outside {cargo_root}: {path_str}",
+                )
+
+        return cargo_root, None
+
+    @staticmethod
+    def _find_cargo_toml(start_path: Path) -> Path | None:
+        """Find Cargo.toml by walking up from a canonical directory."""
+        current = start_path if start_path.is_dir() else start_path.parent
+        while True:
+            candidate = current / "Cargo.toml"
+            if candidate.is_file():
+                return candidate
+            if current == current.parent:
+                return None
+            current = current.parent
+
+    def _workspace_error(self, code: str, message: str) -> CheckResult:
+        """Create an explicit workspace-validation error."""
+        return CheckResult(
+            issues=[
+                Issue(
+                    file=str(self.workspace_root),
+                    line=0,
+                    column=0,
+                    code=code,
+                    message=message,
+                    severity=Severity.ERROR,
+                    source="trust-policy",
+                )
+            ],
+            checks_run=["cargo-workspace-validation"],
+        )
 
     def _count_rust_files(self, paths: list[str]) -> int:
         """Count Rust files in the given paths."""
@@ -70,12 +167,12 @@ class RustChecker:
 
     # ── Cargo fmt ──────────────────────────────────────────────
 
-    def _run_cargo_fmt(self, paths: list[str]) -> CheckResult:
+    def _run_cargo_fmt(self, cargo_root: Path) -> CheckResult:
         """Run cargo fmt --check."""
         cmd = ["cargo", "fmt", "--check"]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=cargo_root, check=False)
         except FileNotFoundError:
             return CheckResult(
                 issues=[
@@ -92,9 +189,7 @@ class RustChecker:
                 checks_run=["cargo-fmt"],
             )
 
-        return self._parse_cargo_fmt_output(
-            result.stdout if result.returncode != 0 else ""
-        )
+        return self._parse_cargo_fmt_output(result.stdout if result.returncode != 0 else "")
 
     def _parse_cargo_fmt_output(self, output: str) -> CheckResult:
         """Parse cargo fmt --check diff-style output.
@@ -125,7 +220,7 @@ class RustChecker:
 
     # ── Clippy ─────────────────────────────────────────────────
 
-    def _run_clippy(self, paths: list[str]) -> CheckResult:
+    def _run_clippy(self, cargo_root: Path) -> CheckResult:
         """Run cargo clippy with JSON output."""
         cmd = [
             "cargo",
@@ -137,7 +232,7 @@ class RustChecker:
         ]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=cargo_root, check=False)
         except FileNotFoundError:
             return CheckResult(
                 issues=[
@@ -158,12 +253,12 @@ class RustChecker:
 
     # ── Cargo check ────────────────────────────────────────────
 
-    def _run_cargo_check(self, paths: list[str]) -> CheckResult:
+    def _run_cargo_check(self, cargo_root: Path) -> CheckResult:
         """Run cargo check with JSON output."""
         cmd = ["cargo", "check", "--message-format=json"]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=cargo_root, check=False)
         except FileNotFoundError:
             return CheckResult(
                 issues=[
@@ -315,9 +410,7 @@ class RustChecker:
             for pattern, description, is_macro in self.config.stub_patterns:
                 if re.search(pattern, line):
                     # Check for legitimate exemptions
-                    if self._is_legitimate_rust_pattern(
-                        file_path, line_num, line, lines, description, is_macro
-                    ):
+                    if self._is_legitimate_rust_pattern(file_path, line_num, line, lines, description, is_macro):
                         continue
 
                     issues.append(
@@ -386,6 +479,7 @@ class RustChecker:
 def check_files(
     paths: list[str | Path],
     config: CheckConfig | None = None,
+    workspace_root: str | Path | None = None,
 ) -> CheckResult:
     """Check Rust files for issues.
 
@@ -396,13 +490,11 @@ def check_files(
     Returns:
         CheckResult with issues found
     """
-    checker = RustChecker(config)
+    checker = RustChecker(config, workspace_root=workspace_root)
     return checker.check_files(paths)
 
 
-def check_content(
-    content: str, filename: str = "stdin.rs", config: CheckConfig | None = None
-) -> CheckResult:
+def check_content(content: str, filename: str = "stdin.rs", config: CheckConfig | None = None) -> CheckResult:
     """Check Rust content string.
 
     Args:

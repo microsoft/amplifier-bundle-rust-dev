@@ -9,6 +9,36 @@ Provides:
 - **Stub detection** — identifies todo!(), unimplemented!(), // TODO patterns
 - **Expert agents** — rust-dev (quality) + code-intel (LSP navigation)
 
+## Security and workspace trust
+
+Rust build scripts, procedural macros, dependencies, Cargo subcommands, and
+language-server features can execute native code. This bundle therefore uses
+a restricted default profile:
+
+- rust-analyzer build scripts, procedural macros, and check-on-save are disabled.
+- Automatic edit hooks run only non-executing stub checks.
+- `rust_check` skips Cargo-based checks until host-controlled configuration sets
+  `allow_workspace_execution: true`.
+- Cargo commands run only from the canonical configured workspace root and
+  reject paths outside it.
+- Compiler diagnostics are XML-escaped and labeled as untrusted data before
+  they are added to model context.
+- External Git sources are pinned to reviewed immutable revisions.
+
+Enabling workspace execution is a security decision. Do it only after trusting
+the repository, its dependencies, `build.rs` files, procedural macros, Cargo,
+rust-analyzer, rustfmt, Clippy, and the Rust toolchain. Repository-controlled
+Cargo metadata cannot enable this setting.
+
+### Migration from 0.2.x behavior defaults
+
+Existing consumers that require automatic Cargo checks must explicitly set
+`allow_workspace_execution: true` in the host-owned `tool-rust-check` or
+`hooks-rust-check` module configuration and restore the desired `format`,
+`lint`, or `types` checks. For LSP features that require generated code or
+procedural macros, provide a separate trusted override enabling the relevant
+rust-analyzer options. Untrusted workspaces remain intentionally limited.
+
 ## Usage
 
 ```yaml

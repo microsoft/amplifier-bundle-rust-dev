@@ -44,8 +44,9 @@ When enabled, Rust files are automatically checked after write/edit operations.
 **Behavior:**
 - Triggers on `write_file`, `edit_file`, and similar tools
 - Checks `*.rs` files only
-- Runs lint and compile checks (fast subset)
+- Runs non-executing stub checks by default
 - Injects issues into agent context for awareness
+- Escapes compiler-controlled text and labels it as untrusted data
 
 **Configuration** (in `Cargo.toml`):
 ```toml
@@ -55,6 +56,13 @@ file_patterns = ["*.rs"]
 report_level = "warning"  # error | warning | info
 auto_inject = true
 ```
+
+Cargo, Clippy, rustfmt, build scripts, procedural macros, and dependencies are
+an execution boundary. The target workspace cannot opt itself into execution
+through Cargo metadata. To enable Cargo-based checks, set
+`allow_workspace_execution = true` in host-controlled tool or hook
+configuration, or set `AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true` for
+direct library use, only after trusting the workspace and installed toolchain.
 
 ## Configuration
 
@@ -85,13 +93,15 @@ auto_inject = true
 ```
 
 For workspaces, use `[workspace.metadata.amplifier-rust-dev]` instead.
+`allow_workspace_execution` is intentionally ignored in Cargo.toml because
+the workspace cannot grant itself execution permission.
 
 ## Best Practices
 
 See @rust-dev:context/RUST_BEST_PRACTICES.md for the full development philosophy.
 
 **Key points:**
-1. Run `rust_check` after writing Rust code
+1. Use non-executing checks by default; run Cargo checks only in trusted workspaces
 2. Fix clippy warnings immediately - they catch real bugs
 3. Use LSP tools to understand code before modifying
 4. Let the type system guide correctness

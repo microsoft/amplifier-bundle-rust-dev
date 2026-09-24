@@ -67,6 +67,26 @@ class TestRustLspBehavior:
         assert server.get("lifecycle") == "timeout"
         assert server.get("idle_timeout") == 300
 
+    def test_untrusted_lsp_profile_disables_code_execution(self):
+        behavior = yaml.safe_load((ROOT / "behaviors" / "rust-lsp.yaml").read_text())
+        options = next(t["config"] for t in behavior["tools"] if t["module"] == "tool-lsp")["languages"]["rust"][
+            "initialization_options"
+        ]
+        assert options["checkOnSave"] is False
+        assert options["cargo"]["buildScripts"]["enable"] is False
+        assert options["procMacro"]["enable"] is False
+
+    def test_external_lsp_sources_are_immutable(self):
+        files = [
+            ROOT / "behaviors" / "rust-lsp.yaml",
+            ROOT / "agents" / "code-intel.md",
+            ROOT / "agents" / "rust-dev.md",
+        ]
+        for path in files:
+            content = path.read_text()
+            assert "amplifier-bundle-lsp@main" not in content
+            assert "amplifier-bundle-lsp@f2ea7c0b5072f17a2edc6618185a2c369a9a9289" in content
+
     def test_lsp_behavior_references_rust_dev_namespace(self):
         """LSP behavior should reference rust-dev namespace, not lsp-rust."""
         behavior = yaml.safe_load((ROOT / "behaviors" / "rust-lsp.yaml").read_text())
@@ -108,6 +128,12 @@ class TestRustQualityBehavior:
         behavior = yaml.safe_load((ROOT / "behaviors" / "rust-quality.yaml").read_text())
         context = behavior.get("context", {}).get("include", [])
         assert any("rust-dev-instructions" in c for c in context)
+
+    def test_quality_hook_is_non_executing_by_default(self):
+        behavior = yaml.safe_load((ROOT / "behaviors" / "rust-quality.yaml").read_text())
+        hook = next(h for h in behavior["hooks"] if h["module"] == "hooks-rust-check")
+        assert hook["config"]["allow_workspace_execution"] is False
+        assert hook["config"]["checks"] == ["stubs"]
 
 
 # -- Composite behavior tests ---------------------------------------

@@ -1,10 +1,13 @@
 """Tests for RustChecker parsing logic."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 # These imports will fail until the checker is implemented — that's expected
 from amplifier_bundle_rust_dev.checker import RustChecker
-from amplifier_bundle_rust_dev.models import CheckConfig, Severity
+from amplifier_bundle_rust_dev.config import load_config
+from amplifier_bundle_rust_dev.models import CheckConfig
+from amplifier_bundle_rust_dev.models import Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -51,6 +54,91 @@ class TestParseCargoFmtOutput:
 
         assert result.issues[0].suggestion is not None
         assert "cargo fmt" in result.issues[0].suggestion.lower()
+
+
+class TestWorkspaceTrust:
+    """Execution-capable checks require host trust and a validated workspace."""
+
+    def test_untrusted_workspace_never_runs_subprocess(self, tmp_path):
+        source = tmp_path / "src" / "lib.rs"
+        source.parent.mkdir()
+        source.write_text("pub fn value() -> u8 { 1 }\n")
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "sample"\nversion = "0.1.0"\n')
+        config = CheckConfig(
+            allow_workspace_execution=False,
+            enable_cargo_fmt=True,
+            enable_clippy=True,
+            enable_cargo_check=True,
+            enable_stub_check=False,
+        )
+
+        with patch("amplifier_bundle_rust_dev.checker.subprocess.run") as run:
+            result = RustChecker(config, workspace_root=tmp_path).check_files([source])
+
+        run.assert_not_called()
+        assert result.issues[0].code == "WORKSPACE-UNTRUSTED"
+        assert result.checks_run == ["cargo-skipped-untrusted"]
+
+    def test_trusted_workspace_sets_canonical_cwd(self, tmp_path):
+        source = tmp_path / "src" / "lib.rs"
+        source.parent.mkdir()
+        source.write_text("pub fn value() -> u8 { 1 }\n")
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "sample"\nversion = "0.1.0"\n')
+        config = CheckConfig(
+            allow_workspace_execution=True,
+            enable_cargo_fmt=False,
+            enable_clippy=False,
+            enable_cargo_check=True,
+            enable_stub_check=False,
+        )
+
+        with patch("amplifier_bundle_rust_dev.checker.subprocess.run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            RustChecker(config, workspace_root=tmp_path).check_files([source])
+
+        run.assert_called_once_with(
+            ["cargo", "check", "--message-format=json"],
+            capture_output=True,
+            text=True,
+            cwd=tmp_path.resolve(),
+            check=False,
+        )
+
+    def test_trusted_workspace_rejects_path_escape(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        (workspace / "Cargo.toml").write_text('[package]\nname = "sample"\nversion = "0.1.0"\n')
+        outside = tmp_path / "outside.rs"
+        outside.write_text("fn main() {}\n")
+        config = CheckConfig(
+            allow_workspace_execution=True,
+            enable_cargo_fmt=False,
+            enable_clippy=False,
+            enable_cargo_check=True,
+            enable_stub_check=False,
+        )
+
+        with patch("amplifier_bundle_rust_dev.checker.subprocess.run") as run:
+            result = RustChecker(config, workspace_root=workspace).check_files([outside])
+
+        run.assert_not_called()
+        assert result.issues[0].code == "PATH-OUTSIDE-WORKSPACE"
+
+    def test_cargo_metadata_cannot_grant_execution_trust(self, tmp_path):
+        cargo_toml = tmp_path / "Cargo.toml"
+        cargo_toml.write_text(
+            "[package]\n"
+            'name = "sample"\n'
+            'version = "0.1.0"\n'
+            "\n"
+            "[package.metadata.amplifier-rust-dev]\n"
+            "allow_workspace_execution = true\n"
+        )
+
+        config = load_config(config_path=cargo_toml)
+
+        assert config.allow_workspace_execution is False
 
 
 class TestParseClippyOutput:
@@ -169,15 +257,8 @@ class TestStubDetection:
         issues = checker._check_file_for_stubs(fixture)
 
         # The unimplemented!() in temp_solution() should be flagged
-        unimpl = [
-            i
-            for i in issues
-            if "unimplemented!() macro" in i.message.lower()
-            and i.source == "stub-check"
-        ]
-        assert any(i.line == 17 for i in unimpl), (
-            "temp_solution's unimplemented!() should be flagged"
-        )
+        unimpl = [i for i in issues if "unimplemented!() macro" in i.message.lower() and i.source == "stub-check"]
+        assert any(i.line == 17 for i in unimpl), "temp_solution's unimplemented!() should be flagged"
 
     def test_exempts_unreachable_in_match(self):
         """unreachable!() in match arms is a legitimate safety assertion."""
@@ -196,9 +277,7 @@ class TestStubDetection:
         issues = checker._check_file_for_stubs(fixture)
 
         # The unimplemented!() on line 25 is in a trait default impl with doc comments
-        flagged_lines = [
-            i.line for i in issues if "unimplemented!() macro" in i.message.lower()
-        ]
+        flagged_lines = [i.line for i in issues if "unimplemented!() macro" in i.message.lower()]
         assert 25 not in flagged_lines, "Trait default impl with doc should be exempt"
 
     def test_all_issues_are_stub_source(self):
