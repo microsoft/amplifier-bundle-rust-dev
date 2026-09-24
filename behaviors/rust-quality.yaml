@@ -15,7 +15,7 @@ bundle:
 # Tools provided by this behavior
 tools:
   - module: tool-rust-check
-    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check
+    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@5313af814ad9550af3b748a3e5772096ef51fc80#subdirectory=modules/tool-rust-check
     config:
       # Host-controlled trust only. Never source this from Cargo.toml.
       allow_workspace_execution: false
@@ -28,7 +28,7 @@ tools:
 # Hooks provided by this behavior
 hooks:
   - module: hooks-rust-check
-    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/hooks-rust-check
+    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@5313af814ad9550af3b748a3e5772096ef51fc80#subdirectory=modules/hooks-rust-check
     config:
       enabled: true
       file_patterns:

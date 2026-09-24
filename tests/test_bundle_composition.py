@@ -293,6 +293,16 @@ class TestNamespaceConsistency:
                 frontmatter = parts[1]
                 assert "lsp-rust:" not in frontmatter, f"{md_file.name} frontmatter references lsp-rust: namespace"
 
+    def test_remote_sources_do_not_use_mutable_main_branch(self):
+        """Production bundle and agent references must be immutable."""
+        paths = [
+            *ROOT.glob("*.yaml"),
+            *(ROOT / "behaviors").glob("*.yaml"),
+            *(ROOT / "agents").glob("*.md"),
+        ]
+        for path in paths:
+            assert "@main" not in path.read_text(), f"{path.relative_to(ROOT)} contains a mutable remote source"
+
 
 # -- YAML validity tests ------------------------------------------------
 

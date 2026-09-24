@@ -43,7 +43,7 @@ rust-analyzer options. Untrusted workspaces remain intentionally limited.
 
 ```yaml
 includes:
-  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@5313af814ad9550af3b748a3e5772096ef51fc80
 ```
 
 ## Individual Behaviors
