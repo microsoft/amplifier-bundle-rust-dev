@@ -92,8 +92,8 @@ class RustChecker:
                     severity=Severity.WARNING,
                     source="trust-policy",
                     suggestion=(
-                        "Enable allow_workspace_execution only in host-controlled "
-                        "configuration after trusting the workspace and toolchain"
+                        "Set AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true in the host "
+                        "process for a trusted workspace and toolchain"
                     ),
                 )
             ],

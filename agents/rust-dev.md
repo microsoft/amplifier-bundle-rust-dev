@@ -32,7 +32,7 @@ meta:
   model_role: [coding, general]
 tools:
   - module: tool-rust-check
-    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@5313af814ad9550af3b748a3e5772096ef51fc80#subdirectory=modules/tool-rust-check
+    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check
   - module: tool-lsp
     source: git+https://github.com/microsoft/amplifier-bundle-lsp@f2ea7c0b5072f17a2edc6618185a2c369a9a9289#subdirectory=modules/tool-lsp
 ---

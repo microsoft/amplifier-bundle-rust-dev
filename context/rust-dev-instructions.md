@@ -35,7 +35,6 @@ Semantic code intelligence for Rust:
 | `incomingCalls` | What calls this function? |
 | `outgoingCalls` | What does this function call? |
 | `codeAction` | Get suggested fixes from rust-analyzer |
-| `customRequest` | Expand macros, find related tests |
 
 ## Automatic Checking Hook
 
@@ -59,10 +58,11 @@ auto_inject = true
 
 Cargo, Clippy, rustfmt, build scripts, procedural macros, and dependencies are
 an execution boundary. The target workspace cannot opt itself into execution
-through Cargo metadata. To enable Cargo-based checks, set
-`allow_workspace_execution = true` in host-controlled tool or hook
-configuration, or set `AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true` for
-direct library use, only after trusting the workspace and installed toolchain.
+through Cargo metadata or bundle configuration. To enable Cargo-based checks,
+set `AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true` in the host process for a
+trusted workspace only; do not place it in repository configuration or a
+repository `.env` file. Direct library users may instead pass
+`CheckConfig(allow_workspace_execution=True)` after making that trust decision.
 
 ## Configuration
 

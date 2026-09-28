@@ -55,7 +55,7 @@ class TestRustLspBehavior:
         assert caps.get("rename") is True
         assert caps.get("codeAction") is True
         assert caps.get("inlayHints") is True
-        assert caps.get("customRequest") is True
+        assert caps.get("customRequest") is False
         assert caps.get("goToImplementation") is True
 
     def test_rust_lifecycle_config(self):
@@ -88,14 +88,11 @@ class TestRustLspBehavior:
             assert "amplifier-bundle-lsp@f2ea7c0b5072f17a2edc6618185a2c369a9a9289" in content
 
     def test_lsp_behavior_references_rust_dev_namespace(self):
-        """LSP behavior should reference rust-dev namespace, not lsp-rust."""
+        """LSP behavior should delegate to the rust-dev code-intel agent."""
         behavior = yaml.safe_load((ROOT / "behaviors" / "rust-lsp.yaml").read_text())
-        # Context should reference rust-dev:
         context_includes = behavior.get("context", {}).get("include", [])
-        assert any("rust-dev:" in c for c in context_includes)
-        assert not any("lsp-rust:" in c for c in context_includes)
-        # Agent should reference rust-dev:
         agent_includes = behavior.get("agents", {}).get("include", [])
+        assert context_includes == []
         assert any("rust-dev:" in a for a in agent_includes)
 
 
@@ -123,17 +120,43 @@ class TestRustQualityBehavior:
         agents = behavior.get("agents", {}).get("include", [])
         assert any("rust-dev" in a for a in agents)
 
-    def test_quality_behavior_has_context(self):
-        """Quality behavior includes instructions context."""
+    def test_quality_behavior_uses_agent_context_sink(self):
+        """Quality instructions are loaded by the delegated agent, not globally."""
         behavior = yaml.safe_load((ROOT / "behaviors" / "rust-quality.yaml").read_text())
         context = behavior.get("context", {}).get("include", [])
-        assert any("rust-dev-instructions" in c for c in context)
+        assert context == []
 
-    def test_quality_hook_is_non_executing_by_default(self):
+    def test_quality_behavior_has_no_workspace_execution_config(self):
         behavior = yaml.safe_load((ROOT / "behaviors" / "rust-quality.yaml").read_text())
+        tool = next(t for t in behavior["tools"] if t["module"] == "tool-rust-check")
         hook = next(h for h in behavior["hooks"] if h["module"] == "hooks-rust-check")
-        assert hook["config"]["allow_workspace_execution"] is False
+        assert "allow_workspace_execution" not in tool["config"]
+        assert "allow_workspace_execution" not in hook["config"]
         assert hook["config"]["checks"] == ["stubs"]
+
+    def test_self_owned_module_sources_use_exact_main_uris(self):
+        """Self-owned modules must load the security fixes from this bundle's main branch."""
+        behavior = yaml.safe_load((ROOT / "behaviors" / "rust-quality.yaml").read_text())
+        agent_content = (ROOT / "agents" / "rust-dev.md").read_text()
+        agent = yaml.safe_load(agent_content.split("---", 2)[1])
+
+        actual_sources = {
+            "quality behavior tool": next(
+                tool["source"] for tool in behavior["tools"] if tool["module"] == "tool-rust-check"
+            ),
+            "quality behavior hook": next(
+                hook["source"] for hook in behavior["hooks"] if hook["module"] == "hooks-rust-check"
+            ),
+            "rust-dev agent tool": next(
+                tool["source"] for tool in agent["tools"] if tool["module"] == "tool-rust-check"
+            ),
+        }
+
+        assert actual_sources == {
+            "quality behavior tool": "git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check",
+            "quality behavior hook": "git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/hooks-rust-check",
+            "rust-dev agent tool": "git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check",
+        }
 
 
 # -- Composite behavior tests ---------------------------------------
@@ -293,15 +316,28 @@ class TestNamespaceConsistency:
                 frontmatter = parts[1]
                 assert "lsp-rust:" not in frontmatter, f"{md_file.name} frontmatter references lsp-rust: namespace"
 
-    def test_remote_sources_do_not_use_mutable_main_branch(self):
-        """Production bundle and agent references must be immutable."""
-        paths = [
-            *ROOT.glob("*.yaml"),
-            *(ROOT / "behaviors").glob("*.yaml"),
-            *(ROOT / "agents").glob("*.md"),
+    def test_only_external_module_sources_must_be_immutable(self):
+        """External modules are pinned; self-owned modules intentionally track main."""
+        lsp_behavior = yaml.safe_load((ROOT / "behaviors" / "rust-lsp.yaml").read_text())
+        code_intel_content = (ROOT / "agents" / "code-intel.md").read_text()
+        code_intel = yaml.safe_load(code_intel_content.split("---", 2)[1])
+        rust_dev_content = (ROOT / "agents" / "rust-dev.md").read_text()
+        rust_dev = yaml.safe_load(rust_dev_content.split("---", 2)[1])
+        quality_behavior = yaml.safe_load((ROOT / "behaviors" / "rust-quality.yaml").read_text())
+
+        external_sources = [
+            lsp_behavior["includes"][0]["bundle"],
+            next(tool["source"] for tool in code_intel["tools"] if tool["module"] == "tool-lsp"),
+            next(tool["source"] for tool in rust_dev["tools"] if tool["module"] == "tool-lsp"),
         ]
-        for path in paths:
-            assert "@main" not in path.read_text(), f"{path.relative_to(ROOT)} contains a mutable remote source"
+        self_owned_sources = [
+            next(tool["source"] for tool in quality_behavior["tools"] if tool["module"] == "tool-rust-check"),
+            next(hook["source"] for hook in quality_behavior["hooks"] if hook["module"] == "hooks-rust-check"),
+            next(tool["source"] for tool in rust_dev["tools"] if tool["module"] == "tool-rust-check"),
+        ]
+
+        assert all("@main" not in source for source in external_sources)
+        assert all("@main" in source for source in self_owned_sources)
 
 
 # -- YAML validity tests ------------------------------------------------

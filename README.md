@@ -16,9 +16,10 @@ language-server features can execute native code. This bundle therefore uses
 a restricted default profile:
 
 - rust-analyzer build scripts, procedural macros, and check-on-save are disabled.
+- rust-analyzer custom requests are disabled.
 - Automatic edit hooks run only non-executing stub checks.
-- `rust_check` skips Cargo-based checks until host-controlled configuration sets
-  `allow_workspace_execution: true`.
+- `rust_check` skips Cargo-based checks until the host process sets
+  `AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true`.
 - Cargo commands run only from the canonical configured workspace root and
   reject paths outside it.
 - Compiler diagnostics are XML-escaped and labeled as untrusted data before
@@ -32,18 +33,19 @@ Cargo metadata cannot enable this setting.
 
 ### Migration from 0.2.x behavior defaults
 
-Existing consumers that require automatic Cargo checks must explicitly set
-`allow_workspace_execution: true` in the host-owned `tool-rust-check` or
-`hooks-rust-check` module configuration and restore the desired `format`,
-`lint`, or `types` checks. For LSP features that require generated code or
-procedural macros, provide a separate trusted override enabling the relevant
-rust-analyzer options. Untrusted workspaces remain intentionally limited.
+Existing consumers that require automatic Cargo checks must set
+`AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true` in the host process for each
+trusted workspace and restore the desired `format`, `lint`, or `types` checks.
+Do not put this value in repository configuration or a repository `.env` file.
+For LSP features that require generated code or procedural macros, provide a
+separate trusted override enabling the relevant rust-analyzer options.
+Untrusted workspaces remain intentionally limited.
 
 ## Usage
 
 ```yaml
 includes:
-  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@5313af814ad9550af3b748a3e5772096ef51fc80
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main
 ```
 
 ## Individual Behaviors

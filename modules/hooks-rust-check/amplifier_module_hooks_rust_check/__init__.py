@@ -21,6 +21,7 @@ from amplifier_core import HookResult
 
 from amplifier_bundle_rust_dev import CheckConfig
 from amplifier_bundle_rust_dev import check_files
+from amplifier_bundle_rust_dev.config import workspace_execution_enabled_by_host
 from amplifier_bundle_rust_dev.models import CheckResult
 from amplifier_bundle_rust_dev.models import Issue
 from amplifier_bundle_rust_dev.models import Severity
@@ -74,7 +75,9 @@ class RustCheckHooks:
         self.checks = config.get("checks", ["format", "lint", "types", "stubs"])
         self.verbosity: Literal["minimal", "normal", "detailed"] = config.get("verbosity", "normal")
         self.show_clean = config.get("show_clean", True)
-        self.allow_workspace_execution = config.get("allow_workspace_execution", False)
+        # Bundle configuration is mergeable with project-owned content. Only the
+        # host process environment may grant permission to execute a workspace.
+        self.allow_workspace_execution = workspace_execution_enabled_by_host()
 
         # Build check config
         self.check_config = CheckConfig(

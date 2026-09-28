@@ -11,6 +11,7 @@ from amplifier_core import ToolResult
 
 from amplifier_bundle_rust_dev import CheckConfig
 from amplifier_bundle_rust_dev import check_files
+from amplifier_bundle_rust_dev.config import workspace_execution_enabled_by_host
 
 
 class RustCheckTool:
@@ -21,8 +22,9 @@ class RustCheckTool:
         config: dict[str, Any] | None = None,
         working_dir: Path | None = None,
     ):
-        config = config or {}
-        self.allow_workspace_execution = config.get("allow_workspace_execution", False)
+        # Bundle configuration is mergeable with project-owned content. Only the
+        # host process environment may grant permission to execute a workspace.
+        self.allow_workspace_execution = workspace_execution_enabled_by_host()
         self.working_dir = working_dir or Path.cwd()
 
     @property
@@ -35,7 +37,8 @@ class RustCheckTool:
 
 Runs cargo fmt (formatting), clippy (linting), cargo check (type/compile errors),
 and stub detection on Rust files or projects. Cargo-based checks are skipped
-unless the host configuration explicitly trusts the workspace and toolchain.
+    unless the host process explicitly opts into a trusted workspace with
+    AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true.
 
 Input options:
 - paths: List of file paths or directories to check

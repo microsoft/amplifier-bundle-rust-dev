@@ -1,6 +1,10 @@
 """Tests for RustChecker parsing logic."""
 
+import asyncio
+import sys
+from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 # These imports will fail until the checker is implemented — that's expected
@@ -10,6 +14,38 @@ from amplifier_bundle_rust_dev.models import CheckConfig
 from amplifier_bundle_rust_dev.models import Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@contextmanager
+def rust_modules():
+    """Import the modules with a minimal core stand-in without affecting other tests."""
+    core = MagicMock()
+    core.ToolResult = MagicMock()
+    core.HookResult = MagicMock()
+    original_core = sys.modules.get("amplifier_core")
+    module_names = (
+        "amplifier_module_hooks_rust_check",
+        "amplifier_module_tool_rust_check",
+    )
+    original_modules = {module_name: sys.modules.get(module_name) for module_name in module_names}
+    sys.modules["amplifier_core"] = core
+    for module_name in module_names:
+        sys.modules.pop(module_name, None)
+    try:
+        from amplifier_module_hooks_rust_check import RustCheckHooks
+        from amplifier_module_tool_rust_check import RustCheckTool
+
+        yield RustCheckTool, RustCheckHooks
+    finally:
+        for module_name in module_names:
+            sys.modules.pop(module_name, None)
+        for module_name, original_module in original_modules.items():
+            if original_module is not None:
+                sys.modules[module_name] = original_module
+        if original_core is None:
+            sys.modules.pop("amplifier_core", None)
+        else:
+            sys.modules["amplifier_core"] = original_core
 
 
 class TestParseCargoFmtOutput:
@@ -139,6 +175,68 @@ class TestWorkspaceTrust:
         config = load_config(config_path=cargo_toml)
 
         assert config.allow_workspace_execution is False
+
+    def test_module_config_cannot_enable_tool_or_hook_without_host_environment(self, monkeypatch, tmp_path):
+        source = self._create_workspace(tmp_path)
+        monkeypatch.delenv("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", raising=False)
+
+        with (
+            rust_modules() as (RustCheckTool, RustCheckHooks),
+            patch("amplifier_bundle_rust_dev.checker.subprocess.run") as run,
+        ):
+            tool = RustCheckTool(
+                {"allow_workspace_execution": True},
+                working_dir=tmp_path,
+            )
+            asyncio.run(tool.execute({"paths": ["src/lib.rs"], "checks": ["types"]}))
+
+            hook = RustCheckHooks(
+                {"allow_workspace_execution": True, "checks": ["types"]},
+                working_dir=tmp_path,
+            )
+            asyncio.run(
+                hook.handle_tool_post(
+                    "tool:post",
+                    {"tool_name": "write_file", "tool_input": {"file_path": str(source)}},
+                )
+            )
+
+            run.assert_not_called()
+        assert tool.allow_workspace_execution is False
+        assert hook.allow_workspace_execution is False
+
+    def test_host_environment_enables_tool_and_hook_execution(self, monkeypatch, tmp_path):
+        source = self._create_workspace(tmp_path)
+        monkeypatch.setenv("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", "true")
+
+        with (
+            rust_modules() as (RustCheckTool, RustCheckHooks),
+            patch("amplifier_bundle_rust_dev.checker.subprocess.run") as run,
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stdout = ""
+            tool = RustCheckTool(working_dir=tmp_path)
+            asyncio.run(tool.execute({"paths": ["src/lib.rs"], "checks": ["types"]}))
+
+            hook = RustCheckHooks({"checks": ["types"]}, working_dir=tmp_path)
+            asyncio.run(
+                hook.handle_tool_post(
+                    "tool:post",
+                    {"tool_name": "write_file", "tool_input": {"file_path": str(source)}},
+                )
+            )
+
+            assert run.call_count == 2
+        assert tool.allow_workspace_execution is True
+        assert hook.allow_workspace_execution is True
+
+    @staticmethod
+    def _create_workspace(tmp_path):
+        source = tmp_path / "src" / "lib.rs"
+        source.parent.mkdir()
+        source.write_text("pub fn value() -> u8 { 1 }\n")
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "sample"\nversion = "0.1.0"\n')
+        return source
 
 
 class TestParseClippyOutput:
