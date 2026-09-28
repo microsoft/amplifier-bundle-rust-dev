@@ -230,6 +230,51 @@ class TestWorkspaceTrust:
         assert tool.allow_workspace_execution is True
         assert hook.allow_workspace_execution is True
 
+    def test_tool_preserves_workspace_settings_without_weakening_host_trust(self, monkeypatch, tmp_path):
+        self._create_workspace(tmp_path)
+        (tmp_path / "Cargo.toml").write_text(
+            '[package]\nname = "sample"\nversion = "0.1.0"\n'
+            '[package.metadata.amplifier-rust-dev]\n'
+            'allow_workspace_execution = true\n'
+            'enable_cargo_fmt = false\n'
+            'enable_clippy = false\n'
+            'enable_cargo_check = false\n'
+            'enable_stub_check = false\n'
+            'fail_on_warning = true\n'
+        )
+        monkeypatch.delenv("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", raising=False)
+
+        with rust_modules() as (RustCheckTool, _), patch(
+            "amplifier_module_tool_rust_check.check_files"
+        ) as check:
+            check.return_value.success = True
+            check.return_value.to_tool_output.return_value = "ok"
+            tool = RustCheckTool(working_dir=tmp_path)
+            asyncio.run(tool.execute({"paths": ["src/lib.rs"]}))
+            config = check.call_args.kwargs["config"]
+            assert config.allow_workspace_execution is False
+            assert config.enable_cargo_fmt is False
+            assert config.enable_clippy is False
+            assert config.enable_cargo_check is False
+            assert config.enable_stub_check is False
+            assert config.fail_on_warning is True
+
+            monkeypatch.setenv("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", "true")
+            trusted_tool = RustCheckTool(working_dir=tmp_path)
+            asyncio.run(trusted_tool.execute({"paths": ["src/lib.rs"]}))
+            trusted_config = check.call_args.kwargs["config"]
+            assert trusted_config.allow_workspace_execution is True
+            assert trusted_config.enable_clippy is False
+            assert trusted_config.enable_cargo_check is False
+            assert trusted_config.fail_on_warning is True
+
+            asyncio.run(trusted_tool.execute({"paths": ["src/lib.rs"], "checks": ["types"]}))
+            requested_config = check.call_args.kwargs["config"]
+            assert requested_config.allow_workspace_execution is True
+            assert requested_config.enable_cargo_check is True
+            assert requested_config.enable_clippy is False
+            assert requested_config.fail_on_warning is True
+
     @staticmethod
     def _create_workspace(tmp_path):
         source = tmp_path / "src" / "lib.rs"

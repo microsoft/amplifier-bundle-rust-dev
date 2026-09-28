@@ -58,7 +58,7 @@ to index before operations return rich results.
   > - **Standalone (recommended)**: Download from https://github.com/rust-lang/rust-analyzer/releases
   > - **Via rustup**: `rustup component add rust-analyzer`
   >
-  > The standalone build includes more features (expandMacro, relatedTests, runnables).
+  > The restricted Rust profile uses standard LSP operations; custom extension requests remain disabled.
 - **"No LSP support configured for [file]"**: The Rust LSP bundle is not loaded. Tell the user to add the lsp-rust bundle to their configuration.
 - **Timeout or connection error**: The server started but is unresponsive. This can happen with very large workspaces on first load. Tell the user to wait for initial indexing to complete, or check `rust-analyzer --version` to verify installation.
 

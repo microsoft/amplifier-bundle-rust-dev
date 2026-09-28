@@ -9,8 +9,9 @@ from typing import Any
 
 from amplifier_core import ToolResult
 
-from amplifier_bundle_rust_dev import CheckConfig
 from amplifier_bundle_rust_dev import check_files
+from amplifier_bundle_rust_dev.config import find_cargo_toml
+from amplifier_bundle_rust_dev.config import load_config
 from amplifier_bundle_rust_dev.config import workspace_execution_enabled_by_host
 
 
@@ -99,7 +100,8 @@ Returns:
             config_overrides["enable_cargo_check"] = "types" in checks
             config_overrides["enable_stub_check"] = "stubs" in checks
 
-        config = CheckConfig.from_dict(config_overrides) if config_overrides else None
+        cargo_toml = find_cargo_toml(self.working_dir) or self.working_dir / "Cargo.toml"
+        config = load_config(config_path=cargo_toml, overrides=config_overrides)
 
         # Run checks
         if paths:

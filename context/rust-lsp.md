@@ -33,9 +33,9 @@ If not found, install: `rustup component add rust-analyzer` or download standalo
 
 - **Trait Resolution**: Navigate trait hierarchies with `goToImplementation` and `findReferences` (note: `prepareTypeHierarchy`/`supertypes`/`subtypes` are NOT supported by rust-analyzer — use `goToImplementation` to find trait implementors and `findReferences` for broader type relationship discovery)
 - **Cargo Workspace**: Understands multi-crate workspaces, cross-crate references
-- **Clippy Integration**: Diagnostics include clippy lints alongside compiler errors
+- **Restricted diagnostics**: Automatic Cargo and Clippy checks are disabled by default; diagnostics do not include their output unless a trusted host enables those checks separately
 - **Lifetime/Borrow Info**: Inlay hints show lifetime annotations and borrow information
-- **Proc Macro Support**: Analyzes proc macro expansions when crates are compiled
+- **Macro investigation**: The restricted profile does not build or expand procedural macros; read macro definitions and proc-macro crate source instead
 
 ## When to Use LSP vs grep
 
