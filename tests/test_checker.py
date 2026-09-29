@@ -113,7 +113,45 @@ class TestWorkspaceTrust:
 
         run.assert_not_called()
         assert result.issues[0].code == "WORKSPACE-UNTRUSTED"
+        assert result.issues[0].severity == Severity.ERROR
         assert result.checks_run == ["cargo-skipped-untrusted"]
+        assert result.success is False
+        assert result.to_tool_output()["success"] is False
+
+    def test_untrusted_tool_reports_failure_when_cargo_did_not_run(self, monkeypatch, tmp_path):
+        self._create_workspace(tmp_path)
+        monkeypatch.delenv("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", raising=False)
+
+        with rust_modules() as (RustCheckTool, _), patch("amplifier_bundle_rust_dev.checker.subprocess.run") as run:
+            tool = RustCheckTool(working_dir=tmp_path)
+            asyncio.run(tool.execute({"paths": ["src/lib.rs"], "checks": ["types"]}))
+            response = sys.modules["amplifier_core"].ToolResult.call_args.kwargs
+
+        run.assert_not_called()
+        assert response["success"] is False
+        assert response["output"]["success"] is False
+        assert response["output"]["checks_run"] == ["cargo-skipped-untrusted"]
+        assert response["output"]["issues"][0]["code"] == "WORKSPACE-UNTRUSTED"
+
+    def test_stub_only_relative_paths_use_session_workspace(self, monkeypatch, tmp_path):
+        source = self._create_workspace(tmp_path)
+        source.write_text("pub fn missing() { todo!(); }\n")
+        monkeypatch.chdir(tmp_path.parent)
+        monkeypatch.delenv("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", raising=False)
+
+        with rust_modules() as (RustCheckTool, _):
+            tool = RustCheckTool(working_dir=tmp_path)
+            asyncio.run(tool.execute({"paths": ["src/lib.rs"], "checks": ["stubs"]}))
+            output = sys.modules["amplifier_core"].ToolResult.call_args.kwargs["output"]
+            assert output["files_checked"] == 1
+            assert output["checks_run"] == ["stub-check"]
+            assert any(issue["code"] == "STUB" for issue in output["issues"])
+            assert output["clean"] is False
+
+            asyncio.run(tool.execute({"checks": ["stubs"]}))
+            default_output = sys.modules["amplifier_core"].ToolResult.call_args.kwargs["output"]
+            assert default_output["files_checked"] == 1
+            assert any(issue["code"] == "STUB" for issue in default_output["issues"])
 
     def test_trusted_workspace_sets_canonical_cwd(self, tmp_path):
         source = tmp_path / "src" / "lib.rs"

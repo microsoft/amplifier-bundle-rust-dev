@@ -42,9 +42,9 @@ class RustChecker:
             CheckResult with all issues found
         """
         if not paths:
-            paths = [Path.cwd()]
+            paths = [self.workspace_root]
 
-        path_strs = [str(p) for p in paths]
+        path_strs = [str(p if Path(p).is_absolute() else self.workspace_root / p) for p in paths]
         results = CheckResult(files_checked=self._count_rust_files(path_strs))
 
         cargo_enabled = self.config.enable_cargo_fmt or self.config.enable_clippy or self.config.enable_cargo_check
@@ -89,7 +89,7 @@ class RustChecker:
                         "Skipped Cargo-based checks because they can execute build.rs, "
                         "procedural macros, dependencies, and external tools"
                     ),
-                    severity=Severity.WARNING,
+                    severity=Severity.ERROR,
                     source="trust-policy",
                     suggestion=(
                         "Set AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true in the host "
