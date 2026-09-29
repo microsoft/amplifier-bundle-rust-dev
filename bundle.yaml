@@ -21,7 +21,7 @@
 
 bundle:
   name: rust-dev
-  version: 0.1.0
+  version: 0.2.0
   description: Comprehensive Rust development tools with code quality, LSP, and expert agents
 
 includes:

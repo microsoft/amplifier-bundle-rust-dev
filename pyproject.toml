@@ -1,6 +1,6 @@
 [project]
 name = "amplifier-bundle-rust-dev"
-version = "0.1.0"
+version = "0.2.0"
 description = "Comprehensive Rust development tools for Amplifier - code quality, LSP, and expert agents"
 readme = "README.md"
 license = { text = "MIT" }

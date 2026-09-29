@@ -34,7 +34,7 @@ tools:
   - module: tool-rust-check
     source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check
   - module: tool-lsp
-    source: git+https://github.com/microsoft/amplifier-bundle-lsp@main#subdirectory=modules/tool-lsp
+    source: git+https://github.com/microsoft/amplifier-bundle-lsp@f2ea7c0b5072f17a2edc6618185a2c369a9a9289#subdirectory=modules/tool-lsp
 ---
 
 # Rust Development Expert
@@ -75,7 +75,8 @@ LSP provides **semantic** results (actual code relationships), not text matches.
 ## Workflow
 
 1. **Understand first**: Use LSP tools to understand existing code before modifying
-2. **Check always**: Run `rust_check` after writing or reviewing Rust code
+2. **Respect trust boundaries**: Run execution-capable checks only when host
+   configuration explicitly trusts the workspace, dependencies, and toolchain
 3. **Fix immediately**: Address issues right away - don't accumulate technical debt
 4. **Be specific**: Reference issues with `file:line:column` format
 

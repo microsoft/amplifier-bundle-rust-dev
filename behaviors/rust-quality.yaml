@@ -9,7 +9,7 @@
 
 bundle:
   name: behavior-rust-quality
-  version: 0.2.0
+  version: 0.3.0
   description: Rust quality tools - cargo checks, auto-checking hook, and expert agent
 
 # Tools provided by this behavior
@@ -34,9 +34,7 @@ hooks:
       report_level: warning
       auto_inject: true
       checks:
-        - lint
-        - types
-        - format
+        - stubs
 
 # Agents provided by this behavior
 agents:

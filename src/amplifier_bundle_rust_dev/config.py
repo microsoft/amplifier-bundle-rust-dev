@@ -5,6 +5,8 @@ from pathlib import Path
 
 from .models import CheckConfig
 
+_TRUE_VALUES = ("true", "1", "yes")
+
 # tomllib is in stdlib from Python 3.11+
 try:
     import tomllib
@@ -26,6 +28,11 @@ def find_cargo_toml(start_path: Path | None = None) -> Path | None:
         current = current.parent
 
     return None
+
+
+def workspace_execution_enabled_by_host() -> bool:
+    """Return whether the host process explicitly allows workspace execution."""
+    return os.environ.get("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", "").lower() in _TRUE_VALUES
 
 
 def load_config(
@@ -59,17 +66,12 @@ def load_config(
                     cargo_toml = tomllib.load(f)
 
                 # Try workspace metadata first, then package metadata
-                config_data = (
-                    cargo_toml.get("workspace", {})
-                    .get("metadata", {})
-                    .get("amplifier-rust-dev", {})
-                )
+                config_data = cargo_toml.get("workspace", {}).get("metadata", {}).get("amplifier-rust-dev", {})
                 if not config_data:
-                    config_data = (
-                        cargo_toml.get("package", {})
-                        .get("metadata", {})
-                        .get("amplifier-rust-dev", {})
-                    )
+                    config_data = cargo_toml.get("package", {}).get("metadata", {}).get("amplifier-rust-dev", {})
+                # Workspace content is untrusted input and cannot grant itself
+                # permission to execute Cargo, build scripts, or proc macros.
+                config_data.pop("allow_workspace_execution", None)
             except Exception:
                 pass  # Graceful fallback to defaults
 
@@ -80,12 +82,13 @@ def load_config(
         "AMPLIFIER_RUST_ENABLE_CARGO_CHECK": "enable_cargo_check",
         "AMPLIFIER_RUST_ENABLE_STUB_CHECK": "enable_stub_check",
         "AMPLIFIER_RUST_FAIL_ON_WARNING": "fail_on_warning",
+        "AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION": "allow_workspace_execution",
     }
 
     for env_var, config_key in env_mapping.items():
         value = os.environ.get(env_var)
         if value is not None:
-            if value.lower() in ("true", "1", "yes"):
+            if value.lower() in _TRUE_VALUES:
                 config_data[config_key] = True
             elif value.lower() in ("false", "0", "no"):
                 config_data[config_key] = False
