@@ -8,7 +8,7 @@ bundle:
 
 # Include lsp-core behavior to get the tool-lsp module with source
 includes:
-  - bundle: git+https://github.com/microsoft/amplifier-bundle-lsp@f2ea7c0b5072f17a2edc6618185a2c369a9a9289#subdirectory=behaviors/lsp-core.yaml
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-lsp@main#subdirectory=behaviors/lsp-core.yaml
 
 # Tool configuration - deep merges with core bundle's tool-lsp
 # NOTE: No source: declaration - inherited from lsp-core

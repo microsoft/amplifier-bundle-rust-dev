@@ -76,7 +76,7 @@ class TestRustLspBehavior:
         assert options["cargo"]["buildScripts"]["enable"] is False
         assert options["procMacro"]["enable"] is False
 
-    def test_external_lsp_sources_are_immutable(self):
+    def test_external_lsp_sources_follow_main(self):
         files = [
             ROOT / "behaviors" / "rust-lsp.yaml",
             ROOT / "agents" / "code-intel.md",
@@ -84,8 +84,7 @@ class TestRustLspBehavior:
         ]
         for path in files:
             content = path.read_text()
-            assert "amplifier-bundle-lsp@main" not in content
-            assert "amplifier-bundle-lsp@f2ea7c0b5072f17a2edc6618185a2c369a9a9289" in content
+            assert "amplifier-bundle-lsp@main#subdirectory=" in content
 
     def test_lsp_behavior_references_rust_dev_namespace(self):
         """LSP behavior should delegate to the rust-dev code-intel agent."""
@@ -316,8 +315,8 @@ class TestNamespaceConsistency:
                 frontmatter = parts[1]
                 assert "lsp-rust:" not in frontmatter, f"{md_file.name} frontmatter references lsp-rust: namespace"
 
-    def test_only_external_module_sources_must_be_immutable(self):
-        """External modules are pinned; self-owned modules intentionally track main."""
+    def test_module_sources_follow_declared_main_policy(self):
+        """External and self-owned modules receive updates through main."""
         lsp_behavior = yaml.safe_load((ROOT / "behaviors" / "rust-lsp.yaml").read_text())
         code_intel_content = (ROOT / "agents" / "code-intel.md").read_text()
         code_intel = yaml.safe_load(code_intel_content.split("---", 2)[1])
@@ -336,7 +335,7 @@ class TestNamespaceConsistency:
             next(tool["source"] for tool in rust_dev["tools"] if tool["module"] == "tool-rust-check"),
         ]
 
-        assert all("@main" not in source for source in external_sources)
+        assert all("@main#subdirectory=" in source for source in external_sources)
         assert all("@main" in source for source in self_owned_sources)
 
 
