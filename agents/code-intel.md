@@ -5,7 +5,7 @@ meta:
   model_role: [coding, general]
 tools:
   - module: tool-lsp
-    source: git+https://github.com/microsoft/amplifier-bundle-lsp@f2ea7c0b5072f17a2edc6618185a2c369a9a9289#subdirectory=modules/tool-lsp
+    source: git+https://github.com/microsoft/amplifier-bundle-lsp@main#subdirectory=modules/tool-lsp
 ---
 
 # Rust Code Intelligence Agent

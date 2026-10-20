@@ -24,7 +24,9 @@ a restricted default profile:
   reject paths outside it.
 - Compiler diagnostics are XML-escaped and labeled as untrusted data before
   they are added to model context.
-- External Git sources are pinned to reviewed immutable revisions.
+- LSP and bundle-owned modules follow their upstream `main` branches so updates
+  include current fixes. Hosts should resolve, validate, and record exact commits
+  for each installation; existing running environments keep their resolved code.
 
 Enabling workspace execution is a security decision. Do it only after trusting
 the repository, its dependencies, `build.rs` files, procedural macros, Cargo,
