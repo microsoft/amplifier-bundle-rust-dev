@@ -131,6 +131,6 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> dict[
 
     return {
         "name": "tool-rust-check",
-        "version": "0.1.0",
+        "version": "0.3.0",
         "provides": ["rust_check"],
     }
