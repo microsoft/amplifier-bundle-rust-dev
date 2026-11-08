@@ -37,7 +37,7 @@ class RustCheckTool:
         return """Check Rust code for quality issues.
 
 Runs cargo fmt (formatting), clippy (linting), cargo check (type/compile errors),
-and stub detection on Rust files or projects. Cargo-based checks are skipped
+stub detection and bounded physical file-size checks on Rust files or projects. Cargo-based checks are skipped
     unless the host process explicitly opts into a trusted workspace with
     AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION=true.
 
@@ -51,6 +51,7 @@ Examples:
 - Check a specific file: {"paths": ["src/main.rs"]}
 - Run only clippy: {"checks": ["lint"]}
 - Run format + lint: {"checks": ["format", "lint"]}
+- Check file size without Cargo: {"paths": ["src/main.rs"], "checks": ["structure"]}
 
 Returns:
 - success: True if no errors (warnings are OK)
@@ -72,7 +73,7 @@ Returns:
                     "type": "array",
                     "items": {
                         "type": "string",
-                        "enum": ["format", "lint", "types", "stubs"],
+                        "enum": ["format", "lint", "types", "stubs", "structure"],
                     },
                     "description": "Specific checks to run (default: all). 'types' runs cargo check.",
                 },
@@ -99,6 +100,7 @@ Returns:
             config_overrides["enable_clippy"] = "lint" in checks
             config_overrides["enable_cargo_check"] = "types" in checks
             config_overrides["enable_stub_check"] = "stubs" in checks
+            config_overrides["enable_structure_check"] = "structure" in checks
 
         cargo_toml = find_cargo_toml(self.working_dir) or self.working_dir / "Cargo.toml"
         config = load_config(config_path=cargo_toml, overrides=config_overrides)
@@ -131,6 +133,6 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> dict[
 
     return {
         "name": "tool-rust-check",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "provides": ["rust_check"],
     }

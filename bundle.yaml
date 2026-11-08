@@ -11,7 +11,7 @@
 #
 # Usage:
 #   includes:
-#     - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.3.0
+#     - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.0
 #
 # For selective inclusion:
 #   # LSP only (no quality hooks):
@@ -21,7 +21,7 @@
 
 bundle:
   name: rust-dev
-  version: 0.3.0
+  version: 0.4.0
   description: Comprehensive Rust development tools with code quality, LSP, and expert agents
 
 includes:
