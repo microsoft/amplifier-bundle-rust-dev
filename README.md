@@ -45,6 +45,10 @@ Untrusted workspaces remain intentionally limited.
 
 ## Usage
 
+Cargo execution, configuration, and malformed diagnostic-output failures are
+reported as errors through the shared checker, tool, and advisory hook. Formatting
+differences remain warnings; a failed check is not reported as a clean result.
+
 ```yaml
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main
