@@ -165,6 +165,35 @@ class RustChecker:
                 count += len(list(path.rglob("*.rs")))
         return count
 
+    @staticmethod
+    def _check_failure(source: str, message: str, detail: str = "") -> CheckResult:
+        """Report an unsuccessful check through the existing diagnostic result."""
+        detail = " ".join(detail.split())[:500]
+        return CheckResult(
+            issues=[
+                Issue(
+                    file="",
+                    line=0,
+                    column=0,
+                    code="CHECK-FAILED",
+                    message=f"{message}: {detail}" if detail else message,
+                    severity=Severity.ERROR,
+                    source=source,
+                )
+            ],
+            checks_run=[source],
+        )
+
+    def _cargo_json_result(self, result: subprocess.CompletedProcess, source: str) -> CheckResult:
+        parsed = self._parse_cargo_json_output(result.stdout, source)
+        if result.returncode != 0 and parsed.success:
+            # Preserve compiler errors as the useful explanation when present.
+            # Cargo/configuration failures can otherwise have only stderr.
+            parsed = parsed.merge(
+                self._check_failure(source, f"{source} failed (exit {result.returncode})", result.stderr)
+            )
+        return parsed
+
     # ── Cargo fmt ──────────────────────────────────────────────
 
     def _run_cargo_fmt(self, cargo_root: Path) -> CheckResult:
@@ -188,8 +217,20 @@ class RustChecker:
                 ],
                 checks_run=["cargo-fmt"],
             )
+        except (OSError, UnicodeError) as exc:
+            return self._check_failure("cargo-fmt", "cargo-fmt could not run", str(exc))
 
-        return self._parse_cargo_fmt_output(result.stdout if result.returncode != 0 else "")
+        parsed = self._parse_cargo_fmt_output(result.stdout)
+        if result.returncode == 0 and not result.stdout.strip():
+            return parsed
+        # rustfmt can emit diffs for one target before failing to parse another.
+        if result.returncode == 1 and parsed.issues and not re.search(r"^\s*error\b", result.stderr, re.I | re.M):
+            return parsed
+        return parsed.merge(
+            self._check_failure(
+                "cargo-fmt", f"cargo-fmt did not produce a valid check result (exit {result.returncode})", result.stderr
+            )
+        )
 
     def _parse_cargo_fmt_output(self, output: str) -> CheckResult:
         """Parse cargo fmt --check diff-style output.
@@ -199,8 +240,8 @@ class RustChecker:
         issues = []
 
         if output.strip():
-            # Match lines like: "Diff in /path/to/file.rs at line 5:"
-            for match in re.finditer(r"Diff in (.+?) at line (\d+):", output):
+            # Current rustfmt uses "file.rs:5:"; retain older "at line 5:" output.
+            for match in re.finditer(r"^Diff in (.+?)(?: at line |:)(\d+):\s*$", output, re.MULTILINE):
                 file_path = match.group(1)
                 line_num = int(match.group(2))
                 issues.append(
@@ -248,8 +289,10 @@ class RustChecker:
                 ],
                 checks_run=["clippy"],
             )
+        except (OSError, UnicodeError) as exc:
+            return self._check_failure("clippy", "clippy could not run", str(exc))
 
-        return self._parse_cargo_json_output(result.stdout, source="clippy")
+        return self._cargo_json_result(result, source="clippy")
 
     # ── Cargo check ────────────────────────────────────────────
 
@@ -274,17 +317,19 @@ class RustChecker:
                 ],
                 checks_run=["cargo-check"],
             )
+        except (OSError, UnicodeError) as exc:
+            return self._check_failure("cargo-check", "cargo-check could not run", str(exc))
 
-        return self._parse_cargo_json_output(result.stdout, source="cargo-check")
+        return self._cargo_json_result(result, source="cargo-check")
 
     # ── Shared JSON parser for clippy and cargo check ──────────
 
     def _parse_cargo_json_output(self, output: str, source: str) -> CheckResult:
         """Parse JSON lines output from cargo clippy or cargo check.
 
-        Cargo emits one JSON object per line. We only care about objects with
-        "reason": "compiler-message". Each has a "message" object containing
-        level, code, spans, and the human-readable message.
+        Compiler-message objects carry diagnostics; build-finished also records
+        unsuccessful builds without a compiler diagnostic. Other Cargo records
+        and non-JSON procedural macro output do not themselves indicate issues.
 
         Args:
             output: Raw stdout from cargo command (JSON lines)
@@ -294,25 +339,47 @@ class RustChecker:
             CheckResult with parsed issues
         """
         issues = []
+        invalid_output = False
+        build_failed = False
 
         if not output.strip():
             return CheckResult(issues=[], checks_run=[source])
 
         for line in output.strip().split("\n"):
             line = line.strip()
-            if not line:
+            # Cargo documents arbitrary non-JSON output from procedural macros.
+            # Macro chatter can itself be JSON or start with an opening brace.
+            if not line.startswith("{"):
                 continue
 
             try:
                 obj = json.loads(line)
             except json.JSONDecodeError:
+                if re.search(r'"reason"\s*:\s*"(?:compiler-message|build-finished)"', line):
+                    invalid_output = True
                 continue
 
+            if obj.get("reason") == "build-finished":
+                if obj.get("success") is False:
+                    build_failed = True
+                elif obj.get("success") is not True:
+                    invalid_output = True
+                continue
             # Only process compiler-message entries
             if obj.get("reason") != "compiler-message":
                 continue
 
             msg = obj.get("message", {})
+            if (
+                not isinstance(msg, dict)
+                or not isinstance(msg.get("message"), str)
+                or not isinstance(msg.get("level"), str)
+                or not isinstance(msg.get("spans", []), list)
+                or any(not isinstance(span, dict) for span in msg.get("spans", []))
+                or (msg.get("code") is not None and not isinstance(msg["code"], dict))
+            ):
+                invalid_output = True
+                continue
             level = msg.get("level", "")
 
             # Map cargo levels to our Severity
@@ -360,7 +427,12 @@ class RustChecker:
                 )
             )
 
-        return CheckResult(issues=issues, checks_run=[source])
+        parsed = CheckResult(issues=issues, checks_run=[source])
+        if invalid_output:
+            parsed = parsed.merge(self._check_failure(source, f"{source} returned malformed diagnostic output"))
+        if build_failed and parsed.success:
+            parsed = parsed.merge(self._check_failure(source, f"{source} reported an unsuccessful build"))
+        return parsed
 
     # ── Stub detection ─────────────────────────────────────────
 

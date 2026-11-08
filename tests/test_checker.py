@@ -1,6 +1,7 @@
 """Tests for RustChecker parsing logic."""
 
 import asyncio
+import subprocess
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -312,6 +313,31 @@ class TestWorkspaceTrust:
             assert requested_config.enable_cargo_check is True
             assert requested_config.enable_clippy is False
             assert requested_config.fail_on_warning is True
+
+    def test_failed_cargo_reaches_tool_and_advisory_hook(self, monkeypatch, tmp_path):
+        source = self._create_workspace(tmp_path)
+        monkeypatch.setenv("AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION", "true")
+        process = subprocess.CompletedProcess(["cargo"], 101, "", "error: invalid Cargo configuration")
+        with (
+            rust_modules() as (RustCheckTool, RustCheckHooks),
+            patch("amplifier_bundle_rust_dev.checker.subprocess.run", return_value=process),
+        ):
+            asyncio.run(RustCheckTool(working_dir=tmp_path).execute({"paths": ["src/lib.rs"], "checks": ["types"]}))
+            tool_result = sys.modules["amplifier_core"].ToolResult.call_args.kwargs
+            assert tool_result["success"] is False
+            assert tool_result["output"]["issues"][0]["code"] == "CHECK-FAILED"
+
+            hook = RustCheckHooks({"checks": ["types"]}, working_dir=tmp_path)
+            asyncio.run(
+                hook.handle_tool_post(
+                    "tool:post", {"tool_name": "write_file", "tool_input": {"file_path": str(source)}}
+                )
+            )
+            hook_result = sys.modules["amplifier_core"].HookResult.call_args.kwargs
+            assert hook_result["action"] == "inject_context"
+            assert hook_result["user_message_level"] == "error"
+            assert "CHECK-FAILED" in hook_result["context_injection"]
+            assert hook_result["ephemeral"] is True
 
     @staticmethod
     def _create_workspace(tmp_path):
