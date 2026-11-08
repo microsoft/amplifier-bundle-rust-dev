@@ -1,10 +1,14 @@
 """Validate rust-dev bundle composition."""
 
+import tomllib
 from pathlib import Path
 
 import yaml
 
+from amplifier_bundle_rust_dev import __version__
+
 ROOT = Path(__file__).parent.parent
+VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
 
 
 def deep_merge(base, overlay):
@@ -133,8 +137,8 @@ class TestRustQualityBehavior:
         assert "allow_workspace_execution" not in hook["config"]
         assert hook["config"]["checks"] == ["stubs"]
 
-    def test_self_owned_module_sources_use_exact_main_uris(self):
-        """Self-owned modules must load the security fixes from this bundle's main branch."""
+    def test_self_owned_module_sources_use_release_uris(self):
+        """Self-owned modules load the same release as the shared checker."""
         behavior = yaml.safe_load((ROOT / "behaviors" / "rust-quality.yaml").read_text())
         agent_content = (ROOT / "agents" / "rust-dev.md").read_text()
         agent = yaml.safe_load(agent_content.split("---", 2)[1])
@@ -152,9 +156,9 @@ class TestRustQualityBehavior:
         }
 
         assert actual_sources == {
-            "quality behavior tool": "git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check",
-            "quality behavior hook": "git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/hooks-rust-check",
-            "rust-dev agent tool": "git+https://github.com/microsoft/amplifier-bundle-rust-dev@main#subdirectory=modules/tool-rust-check",
+            "quality behavior tool": f"git+https://github.com/microsoft/amplifier-bundle-rust-dev@v{VERSION}#subdirectory=modules/tool-rust-check",
+            "quality behavior hook": f"git+https://github.com/microsoft/amplifier-bundle-rust-dev@v{VERSION}#subdirectory=modules/hooks-rust-check",
+            "rust-dev agent tool": f"git+https://github.com/microsoft/amplifier-bundle-rust-dev@v{VERSION}#subdirectory=modules/tool-rust-check",
         }
 
 
@@ -194,10 +198,14 @@ class TestBundleMetadata:
         bundle = yaml.safe_load((ROOT / "bundle.yaml").read_text())
         assert bundle["bundle"]["name"] == "rust-dev"
 
-    def test_bundle_has_version(self):
-        """Root bundle has a version."""
+    def test_release_versions_agree(self):
+        """Bundle, library, behaviors and module packages identify one release."""
         bundle = yaml.safe_load((ROOT / "bundle.yaml").read_text())
-        assert "version" in bundle["bundle"]
+        assert bundle["bundle"]["version"] == VERSION == __version__
+        for path in (ROOT / "behaviors").glob("*.yaml"):
+            assert yaml.safe_load(path.read_text())["bundle"]["version"] == VERSION
+        for path in (ROOT / "modules").glob("*/pyproject.toml"):
+            assert tomllib.loads(path.read_text())["project"]["version"] == VERSION
 
     def test_bundle_includes_composite(self):
         """Root bundle includes the composite behavior."""
@@ -315,8 +323,8 @@ class TestNamespaceConsistency:
                 frontmatter = parts[1]
                 assert "lsp-rust:" not in frontmatter, f"{md_file.name} frontmatter references lsp-rust: namespace"
 
-    def test_module_sources_follow_declared_main_policy(self):
-        """External and self-owned modules receive updates through main."""
+    def test_module_sources_follow_declared_release_policy(self):
+        """External LSP tracks main; self-owned modules use this release tag."""
         lsp_behavior = yaml.safe_load((ROOT / "behaviors" / "rust-lsp.yaml").read_text())
         code_intel_content = (ROOT / "agents" / "code-intel.md").read_text()
         code_intel = yaml.safe_load(code_intel_content.split("---", 2)[1])
@@ -336,7 +344,7 @@ class TestNamespaceConsistency:
         ]
 
         assert all("@main#subdirectory=" in source for source in external_sources)
-        assert all("@main" in source for source in self_owned_sources)
+        assert all(f"@v{VERSION}#subdirectory=" in source for source in self_owned_sources)
 
 
 # -- YAML validity tests ------------------------------------------------

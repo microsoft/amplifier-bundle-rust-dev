@@ -24,9 +24,9 @@ a restricted default profile:
   reject paths outside it.
 - Compiler diagnostics are XML-escaped and labeled as untrusted data before
   they are added to model context.
-- LSP and bundle-owned modules follow their upstream `main` branches so updates
-  include current fixes. Hosts should resolve, validate, and record exact commits
-  for each installation; existing running environments keep their resolved code.
+- Bundle-owned modules are pinned to this release. External LSP sources continue
+  to follow upstream `main`; hosts should resolve, validate, and record their exact
+  commits for each installation. Existing running environments keep their resolved code.
 
 Enabling workspace execution is a security decision. Do it only after trusting
 the repository, its dependencies, `build.rs` files, procedural macros, Cargo,
@@ -51,8 +51,19 @@ differences remain warnings; a failed check is not reported as a clean result.
 
 ```yaml
 includes:
-  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@main
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.3.0
 ```
+
+Install the matching shared library in the Amplifier host's Python environment:
+
+```sh
+python -m pip install "amplifier-bundle-rust-dev @ git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.3.0"
+```
+
+The tool and hook modules use that shared library and the host's existing
+`amplifier-core` as peer dependencies. Including the bundle does not replace this
+host installation requirement. The Git tag distributes bundle content and Python
+source; this release does not require publication to a Python package index.
 
 ## Individual Behaviors
 
