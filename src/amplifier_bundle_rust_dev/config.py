@@ -81,6 +81,8 @@ def load_config(
         "AMPLIFIER_RUST_ENABLE_CLIPPY": "enable_clippy",
         "AMPLIFIER_RUST_ENABLE_CARGO_CHECK": "enable_cargo_check",
         "AMPLIFIER_RUST_ENABLE_STUB_CHECK": "enable_stub_check",
+        "AMPLIFIER_RUST_ENABLE_STRUCTURE_CHECK": "enable_structure_check",
+        "AMPLIFIER_RUST_ENABLE_CLIPPY_ADVISORIES": "enable_clippy_advisories",
         "AMPLIFIER_RUST_FAIL_ON_WARNING": "fail_on_warning",
         "AMPLIFIER_RUST_ALLOW_WORKSPACE_EXECUTION": "allow_workspace_execution",
     }

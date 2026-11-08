@@ -63,6 +63,15 @@ class CheckConfig:
     enable_clippy: bool = True
     enable_cargo_check: bool = True
     enable_stub_check: bool = True
+    # None follows stub selection so format/type-only library callers stay focused.
+    enable_structure_check: bool | None = None
+    enable_clippy_advisories: bool = True
+    max_file_lines: int = 500
+    structure_max_bytes: int = 1024 * 1024
+    structure_exclude_patterns: list[str] = field(
+        default_factory=lambda: ["vendor/**", "generated/**", "_generated/**"]
+    )
+    structure_exclude_generated: bool = True
 
     # Filtering
     exclude_patterns: list[str] = field(
@@ -94,6 +103,16 @@ class CheckConfig:
     hook_report_level: str = "warning"  # error | warning | info
     hook_auto_inject: bool = True
 
+    def __post_init__(self) -> None:
+        for name in ("max_file_lines", "structure_max_bytes"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+
+    @property
+    def structure_enabled(self) -> bool:
+        return self.enable_stub_check if self.enable_structure_check is None else self.enable_structure_check
+
     @classmethod
     def from_dict(cls, data: dict) -> "CheckConfig":
         """Create config from dictionary."""
@@ -103,6 +122,12 @@ class CheckConfig:
             enable_clippy=data.get("enable_clippy", True),
             enable_cargo_check=data.get("enable_cargo_check", True),
             enable_stub_check=data.get("enable_stub_check", True),
+            enable_structure_check=data.get("enable_structure_check"),
+            enable_clippy_advisories=data.get("enable_clippy_advisories", True),
+            max_file_lines=data.get("max_file_lines", 500),
+            structure_max_bytes=data.get("structure_max_bytes", 1024 * 1024),
+            structure_exclude_patterns=data.get("structure_exclude_patterns", cls().structure_exclude_patterns),
+            structure_exclude_generated=data.get("structure_exclude_generated", True),
             exclude_patterns=data.get("exclude_patterns", cls().exclude_patterns),
             fail_on_warning=data.get("fail_on_warning", False),
             hook_enabled=data.get("hook", {}).get("enabled", True),

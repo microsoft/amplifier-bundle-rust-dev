@@ -4,7 +4,7 @@
 
 bundle:
   name: behavior-rust-lsp
-  version: 0.3.0
+  version: 0.4.0
 
 # Include lsp-core behavior to get the tool-lsp module with source
 includes:

@@ -15,6 +15,8 @@ from .models import CheckConfig
 from .models import CheckResult
 from .models import Issue
 from .models import Severity
+from .structure import read_source
+from .structure import source_files
 
 
 class RustChecker:
@@ -45,9 +47,10 @@ class RustChecker:
             paths = [self.workspace_root]
 
         path_strs = [str(p if Path(p).is_absolute() else self.workspace_root / p) for p in paths]
-        results = CheckResult(files_checked=self._count_rust_files(path_strs))
-
         cargo_enabled = self.config.enable_cargo_fmt or self.config.enable_clippy or self.config.enable_cargo_check
+        results = CheckResult(
+            files_checked=self._count_rust_files(path_strs) if cargo_enabled or not self.config.structure_enabled else 0
+        )
         cargo_root = None
         if cargo_enabled:
             if not self.config.allow_workspace_execution:
@@ -70,7 +73,12 @@ class RustChecker:
                 check_result = self._run_cargo_check(cargo_root)
                 results = results.merge(check_result)
 
-        if self.config.enable_stub_check:
+        if self.config.structure_enabled:
+            source_result = self._run_source_checks(path_strs)
+            results = results.merge(source_result)
+            if not cargo_enabled:
+                results.files_checked = source_result.files_checked
+        elif self.config.enable_stub_check:
             stub_result = self._run_stub_check(path_strs)
             results = results.merge(stub_result)
 
@@ -271,6 +279,8 @@ class RustChecker:
             "-W",
             "clippy::all",
         ]
+        if self.config.enable_clippy_advisories:
+            cmd.extend(["-W", "clippy::cognitive_complexity", "-W", "clippy::too_many_lines"])
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=cargo_root, check=False)
@@ -436,6 +446,20 @@ class RustChecker:
 
     # ── Stub detection ─────────────────────────────────────────
 
+    def _run_source_checks(self, paths: list[str]) -> CheckResult:
+        """Share one bounded source read between size and optional stub checks."""
+        result = CheckResult(checks_run=["structure"])
+        if self.config.enable_stub_check:
+            result.checks_run.append("stub-check")
+        for path in source_files(paths, self.config):
+            content, issues = read_source(path, self.config)
+            result.issues.extend(issues)
+            if content is not None:
+                result.files_checked += 1
+                if self.config.enable_stub_check:
+                    result.issues.extend(self._check_file_for_stubs(path, content))
+        return result
+
     def _run_stub_check(self, paths: list[str]) -> CheckResult:
         """Check for TODOs, stubs, and placeholder code in .rs files."""
         issues = []
@@ -464,12 +488,13 @@ class RustChecker:
                 return True
         return False
 
-    def _check_file_for_stubs(self, file_path: Path) -> list[Issue]:
+    def _check_file_for_stubs(self, file_path: Path, content: str | None = None) -> list[Issue]:
         """Check a single .rs file for stub patterns."""
         issues = []
 
         try:
-            content = file_path.read_text(encoding="utf-8")
+            if content is None:
+                content = file_path.read_text(encoding="utf-8")
             lines = content.split("\n")
         except Exception:
             return issues

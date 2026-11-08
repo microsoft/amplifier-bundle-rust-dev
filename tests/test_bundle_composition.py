@@ -135,7 +135,7 @@ class TestRustQualityBehavior:
         hook = next(h for h in behavior["hooks"] if h["module"] == "hooks-rust-check")
         assert "allow_workspace_execution" not in tool["config"]
         assert "allow_workspace_execution" not in hook["config"]
-        assert hook["config"]["checks"] == ["stubs"]
+        assert hook["config"]["checks"] == ["stubs", "structure"]
 
     def test_self_owned_module_sources_use_release_uris(self):
         """Self-owned modules load the same release as the shared checker."""
