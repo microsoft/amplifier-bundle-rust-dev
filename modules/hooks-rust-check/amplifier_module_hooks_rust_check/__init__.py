@@ -290,8 +290,17 @@ class RustCheckHooks:
         if succeeded is False:
             return HookResult(action="continue")
 
-        tool_input = data.get("tool_input", {})
-        file_path = tool_input.get("file_path", tool_input.get("path", ""))
+        tool_output = (
+            tool_result.get("output") if isinstance(tool_result, dict) else getattr(tool_result, "output", None)
+        )
+        resolved_path = tool_output.get("file_path") if isinstance(tool_output, dict) else None
+        # Successful filesystem receipts already resolve mentions and working directories.
+        # Legacy events without that receipt retain their input-path behavior.
+        if succeeded is True and isinstance(resolved_path, str) and resolved_path:
+            file_path = resolved_path
+        else:
+            tool_input = data.get("tool_input", {})
+            file_path = tool_input.get("file_path", tool_input.get("path", ""))
 
         if not file_path:
             return HookResult(action="continue")
