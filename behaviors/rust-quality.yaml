@@ -9,13 +9,13 @@
 
 bundle:
   name: behavior-rust-quality
-  version: 0.4.0
+  version: 0.4.1
   description: Rust quality tools - cargo checks, auto-checking hook, and expert agent
 
 # Tools provided by this behavior
 tools:
   - module: tool-rust-check
-    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.0#subdirectory=modules/tool-rust-check
+    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.1#subdirectory=modules/tool-rust-check
     config:
       default_checks:
         - format
@@ -27,7 +27,7 @@ tools:
 # Hooks provided by this behavior
 hooks:
   - module: hooks-rust-check
-    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.0#subdirectory=modules/hooks-rust-check
+    source: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.1#subdirectory=modules/hooks-rust-check
     config:
       enabled: true
       file_patterns:

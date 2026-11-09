@@ -1,6 +1,6 @@
 [project]
 name = "amplifier-module-tool-rust-check"
-version = "0.4.0"
+version = "0.4.1"
 description = "Rust code quality check tool for Amplifier agents"
 requires-python = ">=3.11"
 # No runtime dependencies - amplifier-core and amplifier-bundle-rust-dev
