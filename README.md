@@ -52,13 +52,13 @@ differences remain warnings; a failed check is not reported as a clean result.
 
 ```yaml
 includes:
-  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.0
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.1
 ```
 
 Install the matching shared library in the Amplifier host's Python environment:
 
 ```sh
-python -m pip install "amplifier-bundle-rust-dev @ git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.0"
+python -m pip install "amplifier-bundle-rust-dev @ git+https://github.com/microsoft/amplifier-bundle-rust-dev@v0.4.1"
 ```
 
 The tool and hook modules use that shared library and the host's existing
@@ -67,6 +67,9 @@ host installation requirement. The Git tag distributes bundle content and Python
 source; this release does not require publication to a Python package index.
 
 ## Fast edit feedback
+
+`v0.4.1` checks the confirmed output path after successful edits, including
+resolved bundle mentions, while retaining support for legacy tool events.
 
 The default hook checks the edited `.rs` file after successful `write_file`,
 `edit_file`, `Write`, `Edit`, or `MultiEdit` events with a `file_path` or `path`.
